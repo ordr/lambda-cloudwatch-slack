@@ -6,8 +6,10 @@ var _ = require('lodash');
 var escapeStringRegexp = require('escape-string-regexp');
 var hookUrl;
 
+var channel = config.slackChannel;
+
 var baseSlackMessage = {
-  channel: config.channel,
+  channel: channel,
   attachments: [
     {
       fields: config.mention ? [
@@ -463,7 +465,7 @@ var processEvent = function (event, context) {
 
 exports.handler = function (event, context) {
   if (hookUrl) {
-    processEvent(event, context);
+             processEvent(event, context);
   } else if (config.unencryptedHookUrl) {
     hookUrl = config.unencryptedHookUrl;
     processEvent(event, context);
@@ -481,7 +483,7 @@ exports.handler = function (event, context) {
         processEvent(event, context);
       }
     });
-  } else {
+  }else {
     context.fail('hook url has not been set.');
   }
 };
