@@ -1,0 +1,18 @@
+{
+    "Records": [
+        {
+            "EventSource": "aws:sns",
+            "EventVersion": "1.0",
+            "EventSubscriptionArn": "arn:aws:sns:eu-west-2:161089576934:cloud-events:6c0cda6b-e683-431e-a9b7-dfb2d8d6e82a",
+            "Sns": {
+                "Type": "Notification",
+                "MessageId": "10ec7794-9009-5b53-ac8f-2cc7d3266fdf",
+                "TopicArn": "arn:aws:sns:eu-west-2:161089576934:cloud-events",
+                "Subject": "ALARM: \"cloudprnt-redis-high-memory-2\" in EU (London)",
+                "Message": "{\"AlarmName\":\"cloudprnt-redis-high-memory-2\",\"AlarmDescription\":\"[CloudPRNT Redis #2] Memory running out soon\",\"AWSAccountId\":\"161089576934\",\"AlarmConfigurationUpdatedTimestamp\":\"2022-07-21T11:51:42.655+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"Threshold Crossed: 2 out of the last 3 datapoints [103.61472279138268 (21/07/22 12:00:00), 83.58179646414207 (21/07/22 11:55:00)] were greater than the threshold (75.0) (minimum 2 datapoints for OK -> ALARM transition).\",\"StateChangeTime\":\"2022-07-21T12:05:03.532+0000\",\"Region\":\"EU (London)\",\"AlarmArn\":\"arn:aws:cloudwatch:eu-west-2:161089576934:alarm:cloudprnt-redis-high-memory-2\",\"OldStateValue\":\"OK\",\"OKActions\":[\"arn:aws:sns:eu-west-2:161089576934:cloud-events\"],\"AlarmActions\":[\"arn:aws:sns:eu-west-2:161089576934:cloud-events\"],\"InsufficientDataActions\":[],\"Trigger\":{\"MetricName\":\"DatabaseMemoryUsagePercentage\",\"Namespace\":\"AWS/ElastiCache\",\"StatisticType\":\"Statistic\",\"Statistic\":\"AVERAGE\",\"Unit\":null,\"Dimensions\":[{\"value\":\"cloudprnt-0001-002\",\"name\":\"CacheClusterId\"}],\"Period\":300,\"EvaluationPeriods\":3,\"DatapointsToAlarm\":2,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":75.0,\"TreatMissingData\":\"missing\",\"EvaluateLowSampleCountPercentile\":\"\"}}",
+                "Timestamp": "2022-07-21T12:05:03.577Z",
+                "MessageAttributes": {}
+            }
+        }
+    ]
+}

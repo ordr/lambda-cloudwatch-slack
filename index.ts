@@ -374,7 +374,6 @@ let handleCloudWatch = function(event: SNSEvent, context: Context) {
     let oldState = message.OldStateValue
     let newState = message.NewStateValue
     let alarmDescription = message.AlarmDescription
-    let alarmReason = message.NewStateReason
     let color = "warning"
     let logs = new CloudWatchLogs.CloudWatchLogsClient({ region: region })
 
@@ -552,12 +551,24 @@ function eventContains(event: SNSEventRecord, text: string): boolean {
         eventSnsMessageRaw.indexOf(text) > -1
 }
 
+function tryJSON(data: string | null): object | null {
+    try {
+        return JSON.parse(data);
+    } catch {
+        return null
+    }
+}
+
 let processEvent = function(event: SNSEvent, context: Context, callback: Callback) {
     console.log("sns received:" + JSON.stringify(event, null, 2))
     let slackMessage: Promise<object>
     let record = event.Records[0]
 
-    if (eventContains(record, config.services.healthcheck.match_text)) {
+    let snsMessage = tryJSON(record.Sns.Message)
+    if (snsMessage && "AlarmName" in snsMessage && "AlarmDescription" in snsMessage) {
+        console.log("processing cloudwatch notification")
+        slackMessage = handleCloudWatch(event, context)
+    } else if (eventContains(record, config.services.healthcheck.match_text)) {
         console.log("processing route53 healthcheck notification")
         slackMessage = handleHealthCheck(event, context)
     } else if (eventContains(record, config.services.codepipeline.match_text)) {
@@ -576,17 +587,7 @@ let processEvent = function(event: SNSEvent, context: Context, callback: Callbac
         console.log("processing autoscaling notification")
         slackMessage = handleAutoScaling(event, context)
     } else {
-        let eventSnsMessage: object | null
-        try {
-            eventSnsMessage = JSON.parse(record.Sns.Message)
-        } catch (e) { }
-
-        if (eventSnsMessage && "AlarmName" in eventSnsMessage && "AlarmDescription" in eventSnsMessage) {
-            console.log("processing cloudwatch notification")
-            slackMessage = handleCloudWatch(event, context)
-        } else {
-            slackMessage = handleCatchAll(event, context)
-        }
+        slackMessage = handleCatchAll(event, context)
     }
 
     slackMessage.then((message: any) => {
