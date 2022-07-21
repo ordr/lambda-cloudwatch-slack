@@ -1,15 +1,17 @@
-var CloudWatchLogs = require("@aws-sdk/client-cloudwatch-logs")
-var KMS = require("@aws-sdk/client-kms")
-var url = require("url")
-var https = require("https")
-var config = require("./config")
-var _ = require("lodash")
-var escapeStringRegexp = require("escape-string-regexp")
-var hookUrl
+let CloudWatchLogs = require("@aws-sdk/client-cloudwatch-logs")
+let KMS = require("@aws-sdk/client-kms")
+let url = require("url")
+import { request } from "https"
+let config = require("./config")
+let _ = require("lodash")
+let escapeStringRegexp = require("escape-string-regexp")
+let hookUrl: string
 
-var channel = config.slackChannel
+import { Context, SNSEvent, Callback, SNSEventRecord } from "aws-lambda";
 
-var baseSlackMessage = {
+let channel = config.slackChannel
+
+let baseSlackMessage = {
     channel: channel,
     attachments: [
         {
@@ -20,23 +22,23 @@ var baseSlackMessage = {
     ],
 }
 
-var postMessage = function (message, callback) {
-    var body = JSON.stringify(message)
-    var options = url.parse(hookUrl)
+let deliverMessage = function(message: object, callback: (o: object) => void) {
+    let body = JSON.stringify(message)
+    let options = url.parse(hookUrl)
     options.method = "POST"
     options.headers = {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(body),
     }
 
-    var postReq = https.request(options, function (res) {
-        var chunks = []
+    let postReq = request(options, function(res) {
+        let chunks: string[] = []
         res.setEncoding("utf8")
-        res.on("data", function (chunk) {
+        res.on("data", function(chunk) {
             return chunks.push(chunk)
         })
-        res.on("end", function () {
-            var body = chunks.join("")
+        res.on("end", function() {
+            let body = chunks.join("")
             if (callback) {
                 callback({
                     body: body,
@@ -52,34 +54,34 @@ var postMessage = function (message, callback) {
     postReq.end()
 }
 
-var handleElasticBeanstalk = function (event, context) {
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var subject =
+let handleElasticBeanstalk = function(event: SNSEvent, context: Context) {
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let subject =
         event.Records[0].Sns.Subject || "AWS Elastic Beanstalk Notification"
-    var message = event.Records[0].Sns.Message
+    let message = event.Records[0].Sns.Message
 
-    var stateRed = message.indexOf(" to RED")
-    var stateSevere = message.indexOf(" to Severe")
-    var butWithErrors = message.indexOf(" but with errors")
-    var noPermission = message.indexOf("You do not have permission")
-    var failedDeploy = message.indexOf("Failed to deploy application")
-    var failedConfig = message.indexOf("Failed to deploy configuration")
-    var failedQuota = message.indexOf(
+    let stateRed = message.indexOf(" to RED")
+    let stateSevere = message.indexOf(" to Severe")
+    let butWithErrors = message.indexOf(" but with errors")
+    let noPermission = message.indexOf("You do not have permission")
+    let failedDeploy = message.indexOf("Failed to deploy application")
+    let failedConfig = message.indexOf("Failed to deploy configuration")
+    let failedQuota = message.indexOf(
         "Your quota allows for 0 more running instance"
     )
-    var unsuccessfulCommand = message.indexOf("Unsuccessful command execution")
+    let unsuccessfulCommand = message.indexOf("Unsuccessful command execution")
 
-    var stateYellow = message.indexOf(" to YELLOW")
-    var stateDegraded = message.indexOf(" to Degraded")
-    var stateInfo = message.indexOf(" to Info")
-    var removedInstance = message.indexOf("Removed instance ")
-    var addingInstance = message.indexOf("Adding instance ")
-    var abortedOperation = message.indexOf(" aborted operation.")
-    var abortedDeployment = message.indexOf(
+    let stateYellow = message.indexOf(" to YELLOW")
+    let stateDegraded = message.indexOf(" to Degraded")
+    let stateInfo = message.indexOf(" to Info")
+    let removedInstance = message.indexOf("Removed instance ")
+    let addingInstance = message.indexOf("Adding instance ")
+    let abortedOperation = message.indexOf(" aborted operation.")
+    let abortedDeployment = message.indexOf(
         "some instances may have deployed the new application version"
     )
 
-    var color = "good"
+    let color = "good"
 
     if (
         stateRed != -1 ||
@@ -105,7 +107,7 @@ var handleElasticBeanstalk = function (event, context) {
         color = "warning"
     }
 
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -126,13 +128,13 @@ var handleElasticBeanstalk = function (event, context) {
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var handleCodeDeploy = function (event, context) {
-    var subject = "AWS CodeDeploy Notification"
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var snsSubject = event.Records[0].Sns.Subject
-    var message
-    var fields = []
-    var color = "warning"
+let handleCodeDeploy = function(event: SNSEvent, context: Context) {
+    let subject = "AWS CodeDeploy Notification"
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let snsSubject = event.Records[0].Sns.Subject
+    let message
+    let fields: object[] = []
+    let color = "warning"
 
     try {
         message = JSON.parse(event.Records[0].Sns.Message)
@@ -169,7 +171,7 @@ var handleCodeDeploy = function (event, context) {
         fields.push({ title: "Detail", value: message, short: false })
     }
 
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -183,18 +185,18 @@ var handleCodeDeploy = function (event, context) {
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var handleCodePipeline = function (event, context) {
-    var subject = "AWS CodePipeline Notification"
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var snsSubject = event.Records[0].Sns.Subject
-    var message
-    var fields = []
-    var color = "warning"
-    var changeType = ""
+let handleCodePipeline = function(event: SNSEvent, context: Context) {
+    let subject = "AWS CodePipeline Notification"
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let snsSubject = event.Records[0].Sns.Subject
+    let message: object
+    let fields: object[] = []
+    let color = "warning"
+    let changeType = ""
 
     try {
         message = JSON.parse(event.Records[0].Sns.Message)
-        detailType = message["detail-type"]
+        let detailType = message["detail-type"]
 
         if (detailType === "CodePipeline Pipeline Execution State Change") {
             changeType = ""
@@ -211,7 +213,7 @@ var handleCodePipeline = function (event, context) {
         } else if (message.detail.state === "FAILED") {
             color = "danger"
         }
-        header = message.detail.state + ": CodePipeline " + changeType
+        let header = message.detail.state + ": CodePipeline " + changeType
         fields.push({ title: "Message", value: header, short: false })
         fields.push({
             title: "Pipeline",
@@ -230,14 +232,14 @@ var handleCodePipeline = function (event, context) {
         })
     } catch (e) {
         color = "good"
-        message = event.Records[0].Sns.Message
-        header =
+        message = JSON.parse(event.Records[0].Sns.Message)
+        let header =
             message.detail.state + ": CodePipeline " + message.detail.pipeline
         fields.push({ title: "Message", value: header, short: false })
         fields.push({ title: "Detail", value: message, short: false })
     }
 
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -251,21 +253,23 @@ var handleCodePipeline = function (event, context) {
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var handleElasticache = function (event, context) {
-    var subject = "AWS ElastiCache Notification"
-    var message = JSON.parse(event.Records[0].Sns.Message)
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var region = event.Records[0].EventSubscriptionArn.split(":")[3]
-    var eventname, nodename
-    var color = "good"
+function recordTimestamp(record: SNSEventRecord): number {
+    return new Date(record.Sns.Timestamp).getTime() / 1000
+}
 
-    for (key in message) {
+let handleElasticache = function(event: SNSEvent, context: Context) {
+    let message = JSON.parse(event.Records[0].Sns.Message)
+    let region = event.Records[0].EventSubscriptionArn.split(":")[3]
+    let eventname, nodename
+    let color = "good"
+
+    for (let key in message) {
         eventname = key
         nodename = message[key]
         break
     }
-    var slackMessage = {
-        text: "*" + subject + "*",
+    let slackMessage = {
+        text: "*AWS ElastiCache Notification*",
         attachments: [
             {
                 color: color,
@@ -287,21 +291,21 @@ var handleElasticache = function (event, context) {
                         short: false,
                     },
                 ],
-                ts: timestamp,
+                ts: recordTimestamp(event.Records[0]),
             },
         ],
     }
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var handleHealthCheck = function (event, context) {
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var message = JSON.parse(event.Records[0].Sns.Message)
-    var region = event.Records[0].EventSubscriptionArn.split(":")[3]
-    var subject = "AWS CloudWatch Notification"
-    var alarmName = message.AlarmName
-    var color = "warning"
-    var customMessage = "Monitor is "
+let handleHealthCheck = function(event: SNSEvent, context: Context) {
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let message = JSON.parse(event.Records[0].Sns.Message)
+    let region = event.Records[0].EventSubscriptionArn.split(":")[3]
+    let subject = "AWS CloudWatch Notification"
+    let alarmName = message.AlarmName
+    let color = "warning"
+    let customMessage = "Monitor is "
 
     if (message.NewStateValue === "ALARM") {
         color = "danger"
@@ -312,7 +316,7 @@ var handleHealthCheck = function (event, context) {
     }
     customMessage += alarmName.split("-awsroute53-")[0]
 
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -333,18 +337,18 @@ var handleHealthCheck = function (event, context) {
     return _.merge(slackMessage, baseSlackMessage)
 }
 
-var handleCloudWatch = function (event, context) {
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var message = JSON.parse(event.Records[0].Sns.Message)
-    var region = event.Records[0].EventSubscriptionArn.split(":")[3]
-    var subject = "AWS CloudWatch Notification"
-    var alarmName = message.AlarmName
+let handleCloudWatch = function(event: SNSEvent, context: Context) {
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let message = JSON.parse(event.Records[0].Sns.Message)
+    let region = event.Records[0].EventSubscriptionArn.split(":")[3]
+    let subject = "AWS CloudWatch Notification"
+    let alarmName = message.AlarmName
 
-    var metricName = message.Trigger.MetricName
-    var metricNamespace = message.Trigger.Namespace
+    let metricName = message.Trigger.MetricName
+    let metricNamespace = message.Trigger.Namespace
 
-    var trigger = message.Trigger
-    var alarmExpression
+    let trigger = message.Trigger
+    let alarmExpression: string
 
     if (typeof trigger.Metrics === "object") {
         // This is a CloudWatch metric math alarm. Instead of a MetricName and
@@ -352,14 +356,14 @@ var handleCloudWatch = function (event, context) {
         // math expression. Need to process each metric in the list of Metrics
         // and replace occurences of it in the alarm expression
         alarmExpression = trigger.Metrics[0].Expression
-        var triggerMetricsLength = trigger.Metrics.length
-        for (var i = 1; i < triggerMetricsLength; i++) {
-            var metric = trigger.Metrics[i]
+        let triggerMetricsLength = trigger.Metrics.length
+        for (let i = 1; i < triggerMetricsLength; i++) {
+            let metric = trigger.Metrics[i]
             alarmExpression = alarmExpression.replace(
                 new RegExp(escapeStringRegexp(metric.Id), "g"),
                 metric.MetricStat.Stat +
-                    ":" +
-                    metric.MetricStat.Metric.MetricName
+                ":" +
+                metric.MetricStat.Metric.MetricName
             )
         }
     } else {
@@ -367,14 +371,14 @@ var handleCloudWatch = function (event, context) {
         alarmExpression = trigger.Statistic + ":" + trigger.MetricName
     }
 
-    var oldState = message.OldStateValue
-    var newState = message.NewStateValue
-    var alarmDescription = message.AlarmDescription
-    var alarmReason = message.NewStateReason
-    var color = "warning"
-    var logs = new CloudWatchLogs.CloudWatchLogsClient({ region: region })
+    let oldState = message.OldStateValue
+    let newState = message.NewStateValue
+    let alarmDescription = message.AlarmDescription
+    let alarmReason = message.NewStateReason
+    let color = "warning"
+    let logs = new CloudWatchLogs.CloudWatchLogsClient({ region: region })
 
-    var metricFilters = logs.send(
+    let metricFilters = logs.send(
         new CloudWatchLogs.DescribeMetricFiltersCommand({
             metricName: metricName,
             metricNamespace: metricNamespace,
@@ -388,10 +392,10 @@ var handleCloudWatch = function (event, context) {
             color = "good"
         }
 
-        var cloudwatchURLBase =
+        let cloudwatchURLBase =
             "https://console.aws.amazon.com/cloudwatch/home?region=" + region
 
-        var logGroupLinks = data.metricFilters.map((filter) => ({
+        let logGroupLinks = data.metricFilters.map((filter) => ({
             title: filter.filterName + " logs source",
             value:
                 cloudwatchURLBase +
@@ -405,7 +409,7 @@ var handleCloudWatch = function (event, context) {
             short: false,
         }))
 
-        var slackMessage = {
+        let slackMessage = {
             text: "*" + subject + "*",
             attachments: [
                 {
@@ -455,19 +459,19 @@ var handleCloudWatch = function (event, context) {
     })
 }
 
-var handleAutoScaling = function (event, context) {
-    var subject = "AWS AutoScaling Notification"
-    var message = JSON.parse(event.Records[0].Sns.Message)
-    var timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
-    var eventname, nodename
-    var color = "good"
+let handleAutoScaling = function(event: SNSEvent, context: Context) {
+    let subject = "AWS AutoScaling Notification"
+    let message = JSON.parse(event.Records[0].Sns.Message)
+    let timestamp = new Date(event.Records[0].Sns.Timestamp).getTime() / 1000
+    let eventname, nodename
+    let color = "good"
 
-    for (key in message) {
+    for (let key in message) {
         eventname = key
         nodename = message[key]
         break
     }
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -493,12 +497,12 @@ var handleAutoScaling = function (event, context) {
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var handleCatchAll = function (event, context) {
-    var record = event.Records[0]
-    var subject = record.Sns.Subject
-    var timestamp = new Date(record.Sns.Timestamp).getTime() / 1000
-    var message = JSON.parse(record.Sns.Message)
-    var color = "warning"
+let handleCatchAll = function(event: SNSEvent, context: Context) {
+    let record = event.Records[0]
+    let subject = record.Sns.Subject
+    let timestamp = new Date(record.Sns.Timestamp).getTime() / 1000
+    let message = JSON.parse(record.Sns.Message)
+    let color = "warning"
 
     if (message.NewStateValue === "ALARM") {
         color = "danger"
@@ -507,9 +511,9 @@ var handleCatchAll = function (event, context) {
     }
 
     // Add all of the values from the event message to the Slack message description
-    var description = ""
-    for (key in message) {
-        var renderedMessage =
+    let description = ""
+    for (let key in message) {
+        let renderedMessage =
             typeof message[key] === "object"
                 ? JSON.stringify(message[key])
                 : message[key]
@@ -517,7 +521,7 @@ var handleCatchAll = function (event, context) {
         description = description + "\n" + key + ": " + renderedMessage
     }
 
-    var slackMessage = {
+    let slackMessage = {
         text: "*" + subject + "*",
         attachments: [
             {
@@ -538,137 +542,109 @@ var handleCatchAll = function (event, context) {
     return Promise.resolve(_.merge(slackMessage, baseSlackMessage))
 }
 
-var processEvent = function (event, context) {
+function eventContains(event: SNSEventRecord, text: string): boolean {
+    let eventSubscriptionArn = event.EventSubscriptionArn
+    let eventSnsSubject = event.Sns.Subject || "no subject"
+    let eventSnsMessageRaw = event.Sns.Message
+
+    return eventSubscriptionArn.indexOf(text) > 1 ||
+        eventSnsSubject.indexOf(text) > -1 ||
+        eventSnsMessageRaw.indexOf(text) > -1
+}
+
+let processEvent = function(event: SNSEvent, context: Context, callback: Callback) {
     console.log("sns received:" + JSON.stringify(event, null, 2))
-    var slackMessage = null
-    var eventSubscriptionArn = event.Records[0].EventSubscriptionArn
-    var eventSnsSubject = event.Records[0].Sns.Subject || "no subject"
-    var eventSnsMessageRaw = event.Records[0].Sns.Message
-    var eventSnsMessage = null
+    let slackMessage: Promise<object>
+    let record = event.Records[0]
 
-    try {
-        eventSnsMessage = JSON.parse(eventSnsMessageRaw)
-    } catch (e) {}
-
-    if (
-        eventSubscriptionArn.indexOf(config.services.healthcheck.match_text) >
-            -1 ||
-        eventSnsSubject.indexOf(config.services.healthcheck.match_text) > -1 ||
-        eventSnsMessageRaw.indexOf(config.services.healthcheck.match_text) > -1
-    ) {
+    if (eventContains(record, config.services.healthcheck.match_text)) {
         console.log("processing route53 healthcheck notification")
         slackMessage = handleHealthCheck(event, context)
-    } else if (
-        eventSubscriptionArn.indexOf(config.services.codepipeline.match_text) >
-            -1 ||
-        eventSnsSubject.indexOf(config.services.codepipeline.match_text) > -1 ||
-        eventSnsMessageRaw.indexOf(config.services.codepipeline.match_text) > -1
-    ) {
+    } else if (eventContains(record, config.services.codepipeline.match_text)) {
         console.log("processing codepipeline notification")
         slackMessage = handleCodePipeline(event, context)
-    } else if (
-        eventSubscriptionArn.indexOf(
-            config.services.elasticbeanstalk.match_text
-        ) > -1 ||
-        eventSnsSubject.indexOf(config.services.elasticbeanstalk.match_text) >
-            -1 ||
-        eventSnsMessageRaw.indexOf(
-            config.services.elasticbeanstalk.match_text
-        ) > -1
-    ) {
+    } else if (eventContains(record, config.services.elasticbeanstalk.match_text)) {
         console.log("processing elasticbeanstalk notification")
         slackMessage = handleElasticBeanstalk(event, context)
-    } else if (
-        eventSnsMessage &&
-        "AlarmName" in eventSnsMessage &&
-        "AlarmDescription" in eventSnsMessage
-    ) {
-        console.log("processing cloudwatch notification")
-        slackMessage = handleCloudWatch(event, context)
-    } else if (
-        eventSubscriptionArn.indexOf(config.services.codedeploy.match_text) >
-            -1 ||
-        eventSnsSubject.indexOf(config.services.codedeploy.match_text) > -1 ||
-        eventSnsMessageRaw.indexOf(config.services.codedeploy.match_text) > -1
-    ) {
+    } else if (eventContains(record, config.services.codedeploy.match_text)) {
         console.log("processing codedeploy notification")
         slackMessage = handleCodeDeploy(event, context)
-    } else if (
-        eventSubscriptionArn.indexOf(config.services.elasticache.match_text) >
-            -1 ||
-        eventSnsSubject.indexOf(config.services.elasticache.match_text) > -1 ||
-        eventSnsMessageRaw.indexOf(config.services.elasticache.match_text) > -1
-    ) {
+    } else if (eventContains(record, config.services.elasticache.match_text)) {
         console.log("processing elasticache notification")
         slackMessage = handleElasticache(event, context)
-    } else if (
-        eventSubscriptionArn.indexOf(config.services.autoscaling.match_text) >
-            -1 ||
-        eventSnsSubject.indexOf(config.services.autoscaling.match_text) > -1 ||
-        eventSnsMessageRaw.indexOf(config.services.autoscaling.match_text) > -1
-    ) {
+    } else if (eventContains(record, config.services.autoscaling.match_text)) {
         console.log("processing autoscaling notification")
         slackMessage = handleAutoScaling(event, context)
     } else {
-        slackMessage = handleCatchAll(event, context)
+        let eventSnsMessage: object | null
+        try {
+            eventSnsMessage = JSON.parse(record.Sns.Message)
+        } catch (e) { }
+
+        if (eventSnsMessage && "AlarmName" in eventSnsMessage && "AlarmDescription" in eventSnsMessage) {
+            console.log("processing cloudwatch notification")
+            slackMessage = handleCloudWatch(event, context)
+        } else {
+            slackMessage = handleCatchAll(event, context)
+        }
     }
 
-    slackMessage.then((message) => {
-        postMessage(message, function (response) {
+    slackMessage.then((message: any) => {
+        deliverMessage(message, function(response: any) {
             if (response.statusCode < 400) {
                 console.info("message posted successfully")
-                context.succeed()
+                callback(null)
             } else if (response.statusCode < 500) {
                 console.error(
                     "error posting message to slack API: " +
-                        response.statusCode +
-                        " - " +
-                        response.statusMessage
+                    response.statusCode +
+                    " - " +
+                    response.statusMessage
                 )
                 // Don't retry because the error is due to a problem with the request
-                context.succeed()
+                callback(null)
             } else {
                 // Let Lambda retry
-                context.fail(
+                callback(
                     "server error when processing message: " +
-                        response.statusCode +
-                        " - " +
-                        response.statusMessage
+                    response.statusCode +
+                    " - " +
+                    response.statusMessage
                 )
             }
         })
     })
 }
 
-exports.handler = function (event, context) {
+exports.handler = function(event: SNSEvent, context: Context, callback: Callback) {
     if (hookUrl) {
-        processEvent(event, context)
+        processEvent(event, context, callback)
     } else if (config.unencryptedHookUrl) {
         hookUrl = config.unencryptedHookUrl
-        processEvent(event, context)
+        processEvent(event, context, callback)
     } else if (
         config.kmsEncryptedHookUrl &&
         config.kmsEncryptedHookUrl !== "<kmsEncryptedHookUrl>"
     ) {
-        var encryptedBuf = new Buffer(config.kmsEncryptedHookUrl, "base64")
-        var cipherText = { CiphertextBlob: encryptedBuf }
+        let encryptedBuf = new Buffer(config.kmsEncryptedHookUrl, "base64")
+        let cipherText = { CiphertextBlob: encryptedBuf }
 
-        var region = event.Records[0].Sns.Message.region
-        var kmsClient = new KMS.KMSClient({ region })
-        var cmd = new KMS.DecryptCommand({
+        let region = JSON.parse(event.Records[0].Sns.Message).region
+        let kmsClient = new KMS.KMSClient({ region })
+        let cmd = new KMS.DecryptCommand({
             CiphertextBlob: cipherText,
         })
         kmsClient
             .send(cmd)
-            .then(function (data) {
+            .then(function(data) {
                 hookUrl = "https://" + data.Plaintext.toString("ascii")
-                processEvent(event, context)
+                processEvent(event, context, callback)
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 console.log("decrypt error: " + err)
-                processEvent(event, context)
+                processEvent(event, context, callback)
             })
     } else {
-        context.fail("hook url has not been set.")
+        callback("hook url has not been set.")
     }
 }

@@ -21,9 +21,12 @@
     "url": "^0.11.0"
   },
   "devDependencies": {
+    "@aws-sdk/types": "^3.127.0",
+    "@types/aws-lambda": "^8.10.101",
     "esbuild": "^0.14.49",
     "node-lambda": "0.16.0",
-    "prettier": "^2.7.1"
+    "prettier": "^2.7.1",
+    "typescript": "^4.7.4"
   },
   "keywords": [
     "aws",
@@ -39,7 +42,7 @@
     "url": "https://github.com/assertible/lambda-cloudwatch-slack.git"
   },
   "scripts": {
-    "deploy": "./scripts/deploy.sh",
+    "build": "esbuild index.js --bundle --platform=node --outfile=bundle.js",
     "test": "./scripts/test.sh"
   }
 }

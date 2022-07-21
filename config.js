@@ -34,5 +34,4 @@ module.exports = {
       match_text: "route53-health-check"
     }
   }
-
 }
