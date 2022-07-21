@@ -42,7 +42,8 @@
     "url": "https://github.com/assertible/lambda-cloudwatch-slack.git"
   },
   "scripts": {
-    "build": "esbuild index.js --bundle --platform=node --outfile=bundle.js",
+    "build": "esbuild index.ts --bundle --platform=node --outfile=bundle.js",
+    "package": "yarn build && zip bundle.zip bundle.js",
     "test": "./scripts/test.sh"
   }
 }

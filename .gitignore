@@ -1,4 +1,5 @@
 *~
+bundle.*
 .env
 tmp/deploy.env
 npm-debug.log
